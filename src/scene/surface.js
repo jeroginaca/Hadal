@@ -195,6 +195,7 @@ export function createSurface({ lowPower = false } = {}) {
       uCloudT: { value: 0 },
       uFoam: { value: 1 },
       uLight: { value: 1 },
+      uHull: { value: new THREE.Vector3(-0.18, -0.2, 0) }, // hull axis centre, set each frame
     },
     defines: { DETAIL_WAVES: lowPower ? 12 : 22, CLOUD_OCT: lowPower ? 3 : 4 },
     vertexShader: /* glsl */ `
@@ -222,7 +223,7 @@ export function createSurface({ lowPower = false } = {}) {
         gl_Position = projectionMatrix * viewMatrix * wp;
       }`,
     fragmentShader: /* glsl */ `
-      uniform vec3 uSun; uniform vec3 uFogColor; uniform float uTime; uniform float uFoam; uniform float uLight;
+      uniform vec3 uSun; uniform vec3 uFogColor; uniform float uTime; uniform float uFoam; uniform float uLight; uniform vec3 uHull;
       varying vec3 vW; varying vec3 vN; varying float vH;
       ${SKY}
       ${DETAIL}
@@ -264,6 +265,23 @@ export function createSurface({ lowPower = false } = {}) {
         vec3 R = reflect(-V, N);
         R.y = abs(R.y);
         vec3 refl = skyColor(normalize(R), uSun);
+        // The sub, mirrored: trace the reflected ray against an ellipsoid the
+        // size of the hull, so the water beside it carries its white.
+        if (uFoam > 0.0) {
+          vec3 rad = vec3(2.54, 0.91, 0.73);
+          vec3 o = (vW - uHull) / rad;
+          vec3 rd = normalize(R) / rad;
+          float a = dot(rd, rd), b = dot(o, rd), cc = dot(o, o) - 1.0;
+          float disc = b * b - a * cc;
+          if (disc > 0.0) {
+            float th = (-b - sqrt(disc)) / a;
+            if (th > 0.0) {
+              vec3 hn = normalize((o + rd * th) / rad);
+              vec3 hull = vec3(0.62, 0.6, 0.57) * (0.45 + 0.55 * max(dot(hn, uSun), 0.0)) + vec3(0.12, 0.15, 0.2) * max(hn.y, 0.0);
+              refl = mix(refl, hull, uFoam * 0.8);
+            }
+          }
+        }
 
         // Body colour + light scattering up through thin wave crests,
         // strongest looking toward the low sun.

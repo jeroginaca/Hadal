@@ -91,10 +91,80 @@ function hullDetailMaps() {
     const x = Math.random() * 256, y = Math.random() * 256;
     r.fillRect(x, y, 1 + Math.random() * 3, 4 + Math.random() * 30); // streaks
   }
+  // Colour: the same seams and hatches as visible paint lines, grime pooled
+  // along them, and the stencils every working vehicle carries.
+  const col = document.createElement('canvas');
+  col.width = col.height = S;
+  const c = col.getContext('2d');
+  c.fillStyle = '#ffffff'; c.fillRect(0, 0, S, S);
+  for (let i = 0; i < 1400; i++) { // faint mottling: repainted, touched up
+    const g = 236 + Math.random() * 19 | 0;
+    c.fillStyle = `rgba(${g},${g - 2},${g - 6},0.35)`;
+    c.fillRect(Math.random() * S, Math.random() * S, 6 + Math.random() * 40, 6 + Math.random() * 40);
+  }
+  const seam = (x0, y0, x1, y1) => {
+    c.strokeStyle = 'rgba(120,118,112,0.35)'; c.lineWidth = 7; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    c.strokeStyle = 'rgba(70,70,68,0.75)'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  };
+  [0.33, 0.66].forEach((u) => seam(u * S, 0, u * S, S));
+  [0.12, 0.3, 0.47, 0.64, 0.8].forEach((v) => seam(0, v * S, S, v * S));
+  c.fillStyle = 'rgba(90,88,84,0.55)';
+  [0.12, 0.3, 0.47, 0.64, 0.8].forEach((v) => {
+    for (let x = 6; x < S; x += 22) { c.beginPath(); c.arc(x, v * S + 9, 2.4, 0, Math.PI * 2); c.fill(); }
+  });
+  c.strokeStyle = 'rgba(60,60,58,0.8)'; c.lineWidth = 3;
+  c.strokeRect(0.42 * S, 0.5 * S, 0.12 * S, 0.1 * S);
+  c.strokeRect(0.1 * S, 0.33 * S, 0.08 * S, 0.12 * S);
+  // Stencils: small yellow/black warning plates and lift-point marks.
+  // The lower half shares these UVs but runs the other way round, so it gets
+  // a copy without stencils (text there would read upside down).
+  const plain = document.createElement('canvas');
+  plain.width = plain.height = S;
+  const snapshot = () => plain.getContext('2d').drawImage(col, 0, 0);
+  // Lathe UVs run around the hull in x and along it in y, so stencils are
+  // drawn turned a quarter turn to read along the hull.
+  const plate = (x, y, w, h, text) => {
+    c.save();
+    c.translate(x, y);
+    c.rotate(Math.PI / 2);
+    c.fillStyle = '#e8b830'; c.fillRect(-w / 2, -h / 2, w, h);
+    c.fillStyle = '#1a1a1a'; c.fillRect(-w / 2 + 3, -h / 2 + 3, w - 6, 4); c.fillRect(-w / 2 + 3, h / 2 - 7, w - 6, 4);
+    c.font = `600 ${Math.round(h * 0.36)}px monospace`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(text, 0, 1);
+    c.restore();
+  };
+  const stencil = (x, y, text) => {
+    c.save();
+    c.translate(x, y);
+    c.rotate(Math.PI / 2);
+    c.fillStyle = 'rgba(40,40,40,0.85)'; c.font = '600 15px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(text, 0, 0);
+    c.restore();
+  };
+  // Grime pooled below seams and rivet lines, smudged.
+  for (let i = 0; i < 260; i++) {
+    const v = [0.12, 0.3, 0.47, 0.64, 0.8][i % 5];
+    const x = Math.random() * S, y = v * S + 4;
+    const g = c.createLinearGradient(x, y, x, y + 20 + Math.random() * 60);
+    g.addColorStop(0, 'rgba(110,100,85,0.28)'); g.addColorStop(1, 'rgba(110,100,85,0)');
+    c.fillStyle = g; c.fillRect(x, y, 2 + Math.random() * 6, 80);
+  }
+  snapshot();
+  plate(0.48 * S, 0.47 * S, 0.1 * S, 0.035 * S, 'HATCH');
+  plate(0.23 * S, 0.22 * S, 0.08 * S, 0.03 * S, 'NO STEP');
+  plate(0.78 * S, 0.72 * S, 0.08 * S, 0.03 * S, 'NO STEP');
+  stencil(0.14 * S, 0.22 * S, 'LIFT POINT');
+  stencil(0.72 * S, 0.38 * S, 'TOW');
+  stencil(0.55 * S, 0.72 * S, 'DO NOT PAINT');
   const bt = new THREE.CanvasTexture(bump);
   const rt = new THREE.CanvasTexture(rough);
-  [bt, rt].forEach((t) => { t.anisotropy = 8; t.wrapS = t.wrapT = THREE.RepeatWrapping; });
-  return { bump: bt, rough: rt };
+  const ct = new THREE.CanvasTexture(col);
+  ct.colorSpace = THREE.SRGBColorSpace;
+  [bt, rt, ct].forEach((t) => { t.anisotropy = 8; t.wrapS = t.wrapT = THREE.RepeatWrapping; });
+  const cp = new THREE.CanvasTexture(plain);
+  cp.colorSpace = THREE.SRGBColorSpace;
+  cp.anisotropy = 8;
+  return { bump: bt, rough: rt, color: ct, colorPlain: cp };
 }
 
 // Adds animated caustics to the upward-facing, submerged parts of the hull.
@@ -103,15 +173,46 @@ export const causticUniforms = {
   uCaustic: { value: 1 },
   uSurfaceY: { value: 0 },
 };
-function withCaustics(mat) {
+// Paint that has been to 11 km and back: grime darkens the lower hull and
+// runs down from the seams in streaks, and the hull is darker and glossier
+// where the swell keeps it wet. Local coordinates, so it rides with the part.
+const GRIME = /* glsl */ `
+  float gh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float gn(vec2 p) {
+    vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(gh(i), gh(i + vec2(1.0, 0.0)), u.x), mix(gh(i + vec2(0.0, 1.0)), gh(i + vec2(1.0, 1.0)), u.x), u.y);
+  }
+  vec3 grime(vec3 base, vec3 lp, vec3 wp, float surfaceY) {
+    float h = clamp(lp.y / 0.91, -1.0, 1.0);             // -1 keel .. 1 crown
+    // Streaks: stretched vertically, stronger toward the bottom.
+    float st = gn(vec2(lp.x * 11.0, lp.y * 0.8)) * 0.6 + gn(vec2(lp.x * 31.0, lp.y * 1.6)) * 0.4;
+    float streak = smoothstep(0.45, 0.85, st) * smoothstep(0.95, -0.3, h);
+    float blotch = gn(lp.xz * 3.0 + lp.y * 2.0);
+    vec3 dirt = vec3(0.62, 0.6, 0.54);
+    vec3 c = base * mix(1.0, 0.8, smoothstep(0.15, -0.95, h));  // lower hull: duller
+    c = mix(c, c * dirt, streak * 0.45 + blotch * 0.08);
+    // Wet band at the waterline.
+    float dy = wp.y - surfaceY;
+    float wet = (1.0 - smoothstep(0.0, 0.28, dy)) * smoothstep(-0.6, -0.1, dy); // only around the waterline
+    c *= 1.0 - 0.22 * wet;
+    return c;
+  }
+`;
+
+function withCaustics(mat, { grime = false } = {}) {
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, causticUniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vCW; varying vec3 vCN;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vCW; varying vec3 vCN; varying vec3 vLP;')
       .replace(
         '#include <project_vertex>',
-        '#include <project_vertex>\nvCW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvCN = normalize(mat3(modelMatrix) * objectNormal);'
+        '#include <project_vertex>\nvCW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvCN = normalize(mat3(modelMatrix) * objectNormal);\nvLP = position;'
       );
+    if (grime) {
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vLP;\n' + GRIME)
+        .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = grime(diffuseColor.rgb, vLP, vCW, uSurfaceY);');
+    }
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
@@ -237,13 +338,14 @@ export function createSub({ lowPower = false, renderer = null } = {}) {
   }
   const detail = hullDetailMaps();
   const mats = [];
-  const P = (params, caustic = true) => {
+  const P = (params, caustic = true, grime = false) => {
     const m = new THREE.MeshPhysicalMaterial({ envMap, envMapIntensity: 1, ...params });
     mats.push(m);
-    return caustic ? withCaustics(m) : m;
+    return caustic ? withCaustics(m, { grime }) : m;
   };
   const M = {
-    hull: P({ color: '#ecebe6', roughness: 0.55, roughnessMap: detail.rough, bumpMap: detail.bump, bumpScale: 5, clearcoat: 0.55, clearcoatRoughness: 0.3 }),
+    hull: P({ color: '#dddbd4', map: detail.color, roughness: 0.55, roughnessMap: detail.rough, bumpMap: detail.bump, bumpScale: 5, clearcoat: 0.45, clearcoatRoughness: 0.35 }, true, true),
+    hullLow: P({ color: '#dddbd4', map: detail.colorPlain, roughness: 0.55, roughnessMap: detail.rough, bumpMap: detail.bump, bumpScale: 5, clearcoat: 0.45, clearcoatRoughness: 0.35 }, true, true),
     hullInner: P({ color: '#8d9197', roughness: 0.8, side: THREE.BackSide }, false),
     orange: P({ color: '#e0512a', roughness: 0.4, clearcoat: 0.7, clearcoatRoughness: 0.2, side: THREE.DoubleSide }),
     foam: P({ color: '#e3a83c', roughness: 0.92 }),
@@ -275,7 +377,7 @@ export function createSub({ lowPower = false, renderer = null } = {}) {
   hullLower.position.y = HULL_Y;
   hullLower.scale.z = Z_SCALE;
   core.g.add(hullLower);
-  hullLower.add(new THREE.Mesh(latheX(PROFILE, seg, 0, Math.PI), M.hull));
+  hullLower.add(new THREE.Mesh(latheX(PROFILE, seg, 0, Math.PI), M.hullLow)); // no stencils: they'd read upside down here
   hullLower.add(new THREE.Mesh(latheX(PROFILE, seg, 0, Math.PI), M.hullInner));
 
   // Livery band, a hair proud of the hull, just below the equator (+Z side).

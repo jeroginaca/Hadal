@@ -24,5 +24,8 @@ const shots = {
 export default defineConfig({
   base: './', // works from any sub-path (GitHub Pages serves /Hadal/)
   plugins: [shots],
-  build: { chunkSizeWarningLimit: 750 }, // three.js core is most of it
+  build: {
+    chunkSizeWarningLimit: 750, // three.js core is most of it
+    rollupOptions: { input: { main: 'index.html', case: 'case-study.html' } },
+  },
 });

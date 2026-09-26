@@ -138,13 +138,13 @@ function keys() {
   const portrait = innerWidth / innerHeight < 0.8;
   return {
     surface: portrait
-      ? { pos: V(0.3, 3.4, 13), look: V(0.3, 2.1, 0) }
+      ? { pos: V(0.3, 3.1, 13), look: V(0.3, 4.1, 0) } // sub sits low in the frame, under the headline
       : { pos: V(-3.2, 2.3, 12.5), look: V(-3.4, 0.5, 0) },
     sunlight: { pos: V(5.2, 0.2, 4.7), look: portrait ? V(2.1, -0.15, 0.6) : V(1.3, -0.15, 1.5), ease: [0.25, 1] },
     twilight: { pos: V(4.6, -0.1, 3.4), look: portrait ? V(2.4, -0.25, 0.9) : V(1.95, -0.2, 1.5) },
     midnight: { pos: V(-4.2, 2.2, 8), look: V(5, -0.9, 0), ease: [0, 0.5] },
     vessel: portrait
-      ? { pos: V(0, 3.8, 15), look: V(0, 1.8, 0), ease: [0, 0.18] }
+      ? { pos: V(0, 4.4, 20.5), look: V(0, 0.9, 0), ease: [0, 0.18] } // far enough that the exploded parts fit
       : { pos: V(-3.2, 2.0, 12.5), look: V(-2.9, 0.5, 0), ease: [0, 0.18] },
     abyssal: { pos: V(-11, 7, 15), look: V(4, -6, -2), ease: [0, 0.35] },
     hadal: { pos: V(-8.5, 2.2, 2.6), look: V(6, -1.6, -0.8), ease: [0, 0.6] },
@@ -244,7 +244,7 @@ function applyDepth(d, time, dt) {
   // --- ambient and sun ---
   // Underwater, light comes hard from above: weak ambient fill, strong top key,
   // near-black from below. That top-down falloff is most of what reads as "wet".
-  hemi.intensity = amb * (underwater ? 0.55 : 1.6);
+  hemi.intensity = amb * (underwater ? 0.55 : 1.3);
   hemi.color.setRGB(1, 0.86, 0.72).lerp(tmpC.setRGB(0.45, 0.78, 1.0), smoothstep(0, 60, d));
   hemi.groundColor.setRGB(0.01, 0.03, 0.05);
   sun.intensity = (1 - smoothstep(0, 220, d)) * (underwater ? 2.6 : 2.4);
@@ -266,7 +266,7 @@ function applyDepth(d, time, dt) {
   const vesselK = chapter === 'vessel' ? smoothstep(0, 0.12, t) * (1 - smoothstep(0.9, 1, t)) : 0;
   studio.intensity = vesselK * 2.4;
   // Flood backscatter faintly lights the hull via its reflections only (not the seafloor).
-  sub.setEnv(Math.max(amb * (underwater ? 0.18 : 1), vesselK * 0.9, state.flood * 0.22 * smoothstep(900, 1300, d)));
+  sub.setEnv(Math.max(amb * (underwater ? 0.18 : 0.6), vesselK * 0.9, state.flood * 0.22 * smoothstep(900, 1300, d)));
   hemi.intensity += vesselK * 0.5;
 
 
@@ -275,6 +275,7 @@ function applyDepth(d, time, dt) {
   const sway = reduced ? 0 : 1;
   // At the surface she floats low: sail and upper hull above the waterline.
   sub.root.position.set(0, -0.62 * atSurface + Math.sin(time * 0.9) * 0.12 * atSurface * sway, 0);
+  surface.oceanMat.uniforms.uHull.value.set(-0.18, sub.root.position.y + 0.42, 0); // hull axis, for its reflection
   sub.root.rotation.set(Math.sin(time * 0.5) * 0.03 * sway, 0, Math.sin(time * 0.7) * (0.035 * atSurface + 0.01) * sway);
   const explode = chapter === 'vessel' ? smoothstep(0.12, 0.38, t) * (1 - smoothstep(0.84, 0.97, t)) : 0;
   sub.setExplode(state.ascending ? 0 : explode);
@@ -558,6 +559,7 @@ function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   post.setSize(size.x, size.y);
+  if (!snow || !seafloor) return; // resized mid-load: the rest isn't built yet
   snow.mat.uniforms.uPixel.value = W.dpr;
   bubbles.mat.uniforms.uPixel.value = W.dpr;
   bokeh.mat.uniforms.uPixel.value = W.dpr;
@@ -583,6 +585,22 @@ function adapt(dt, raw) {
     W.dpr = Math.max(0.75, W.dpr - 0.2);
     resize();
   }
+}
+
+// Performance readout for testing on real devices: add ?fps to the URL.
+const fpsEl = location.search.includes('fps') ? document.createElement('div') : null;
+if (fpsEl) {
+  fpsEl.style.cssText = 'position:fixed;right:8px;top:8px;z-index:99;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,.7);color:#7fd6e8;font:11px/1.4 ui-monospace,Menlo,monospace;pointer-events:none;white-space:pre';
+  document.body.appendChild(fpsEl);
+}
+let fpsN = 0, fpsT = 0, fpsWorst = 0;
+function fpsTick(raw) {
+  if (!fpsEl || raw > 0.5) return;
+  fpsN++; fpsT += raw; fpsWorst = Math.max(fpsWorst, raw);
+  if (fpsT < 0.5) return;
+  const px = renderer.getDrawingBufferSize(new THREE.Vector2());
+  fpsEl.textContent = `${Math.round(fpsN / fpsT)} fps  worst ${Math.round(fpsWorst * 1000)} ms\n${px.x}×${px.y} @ ${W.dpr.toFixed(2)}x  ${lowPower ? 'low-power' : 'full'} tier`;
+  fpsN = 0; fpsT = 0; fpsWorst = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -649,6 +667,7 @@ function frameStep(ts) {
   sound.update(d, time);
   post.render(scene, camera);
   adapt(dt, raw);
+  fpsTick(raw);
 }
 
 // Drop a model at public/models/sub.glb and it replaces the procedural hull.
@@ -700,6 +719,8 @@ if (import.meta.env.DEV) {
     get seafloor() { return seafloor; },
     get post() { return post; },
     get fish() { return fish; },
+    get biolum() { return biolum; },
+    get camera() { return camera; },
     THREE,
     step: () => frameStep(performance.now()),
     // Render one frame synchronously and save it via the dev server.

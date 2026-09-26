@@ -1,10 +1,12 @@
 # Hadal
 
-A scroll-driven descent to 10,935 m for the (fictional) Hadal Trench Institute. Built with three.js and Vite, with no image, model or audio files: everything is generated in code, so the whole site is about 160 KB gzipped.
+A scroll-driven descent to 10,935 m for the (fictional) Hadal Trench Institute. Built with three.js and Vite, with no image, model or audio files: everything is generated in code, so the whole site is about 190 KB gzipped.
+
+**Live:** https://jeroginaca.github.io/Hadal/ · **Case study:** https://jeroginaca.github.io/Hadal/case-study.html
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173 (the Claude preview config uses 5174)
 npm run build    # static output in dist/
 ```
 
@@ -37,4 +39,6 @@ Drop a GLB at `public/models/sub.glb` and it replaces the procedural hull on loa
 ## Notes
 
 - The sign-up form validates and confirms on the client only; it is **not connected to a backend**. Wire `#signup-form` to your list provider.
+- `?fps` (works on the live site too) shows frame rate, worst frame, drawing-buffer size and quality tier, for checking real devices.
+- Pushing to `main` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). `case-study.html` is a second page in the same build; its screenshots live in `public/case/`, and the link preview image is `public/og.jpg`.
 - Dev only: `?snap` disables easing (handy for checking a single depth), `window.__hadal` exposes state, and `__hadal.shot(name)` saves a frame to `.shots/` through the dev server.

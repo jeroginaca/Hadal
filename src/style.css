@@ -188,6 +188,9 @@ body::before {
 .surface-btn.small { font-size: 26px; padding: 10px 22px; border: 1px solid var(--accent); border-radius: 999px; }
 .surface-btn.small::after { content: ''; }
 .cta .lede { margin-inline: auto; }
+.case-link { margin-top: 28px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+.case-link a { color: var(--ink-dim); text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 2px; }
+.case-link a:hover { color: var(--accent); }
 .credit { margin-top: 3rem !important; font-size: 10.5px !important; opacity: 0.6; }
 .credit a { color: inherit; }
 
