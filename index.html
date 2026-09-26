@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hadal Trench Institute — Descend to 10,935 m</title>
+    <meta name="description" content="The Hadal Trench Institute runs crewed dives to the deepest points on Earth. Scroll to descend to the bottom of the Challenger Deep." />
+    <meta name="theme-color" content="#02070c" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%2302070c' stroke='%237fd6e8' stroke-width='2'/%3E%3Cpath d='M9 13h14M11 18h10M13 23h6' stroke='%237fd6e8' stroke-width='2'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <!-- 0. Loader -->
+    <div id="loader" role="status" aria-live="polite">
+      <div class="loader-inner">
+        <div class="sonar" aria-hidden="true"><span></span></div>
+        <p class="loader-title">Pressurising hull.</p>
+        <div class="loader-bar"><i></i></div>
+        <p class="loader-step mono"><span id="loader-pct">0</span>% · <span id="loader-msg">sealing hatch</span></p>
+      </div>
+    </div>
+
+    <!-- Depth-driven CSS backdrop; also the whole visual if WebGL is unavailable. -->
+    <div id="backdrop" aria-hidden="true"></div>
+    <canvas id="scene" aria-hidden="true"></canvas>
+
+    <header class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>Hadal Trench Institute</span>
+    </header>
+
+    <!-- Persistent HUD -->
+    <aside id="hud" aria-label="Dive telemetry">
+      <div class="hud-depth">
+        <span class="hud-label">Depth</span>
+        <output id="hud-depth" class="mono">0</output><span class="unit">m</span>
+        <span id="hud-zone" class="hud-zone">Surface</span>
+      </div>
+      <dl class="hud-grid mono">
+        <div><dt>Pressure</dt><dd><output id="hud-pressure">1.0</output> atm</dd></div>
+        <div><dt>Temp</dt><dd><output id="hud-temp">24.0</output> °C</dd></div>
+        <div><dt>Light</dt><dd><output id="hud-light">100</output> %</dd></div>
+      </dl>
+      <div id="hud-spectrum" class="spectrum" role="img" aria-label="Colours still visible at this depth">
+        <i style="--c:#e0322a"></i><i style="--c:#ef8a2b"></i><i style="--c:#f2d23a"></i><i style="--c:#3fbf5a"></i><i style="--c:#2bb8c9"></i><i style="--c:#2f5fe0"></i>
+      </div>
+      <div class="gauge" aria-hidden="true">
+        <div class="gauge-track">
+          <span style="--p:0">0</span><span style="--p:0.2">200</span><span style="--p:0.4">1k</span><span style="--p:0.6">4k</span><span style="--p:0.8">6k</span><span style="--p:1">10.9k</span>
+          <b id="gauge-mark"></b>
+        </div>
+      </div>
+      <div class="hud-controls">
+        <button id="btn-sound" class="chip" aria-pressed="false"><span class="dot"></span>Sound off</button>
+        <button id="btn-lights" class="chip" aria-pressed="true" disabled><span class="dot"></span>Floodlights</button>
+      </div>
+    </aside>
+
+    <div id="labels" aria-hidden="true"></div>
+
+    <main id="chapters">
+      <!-- 1. Surface -->
+      <section class="chapter hero" data-chapter="surface" data-d0="0" data-d1="0">
+        <div class="beat" style="top: 16vh">
+          <p class="eyebrow mono">HTI dive 0417 · Challenger Deep · 06:12 local</p>
+          <h1>Down to<br />10,935&nbsp;m.</h1>
+          <p class="lede">The Hadal Trench Institute takes people to the deepest places on Earth. This is the trip, one metre at a time.</p>
+          <p class="cue mono">Scroll to dive <span aria-hidden="true">↓</span></p>
+        </div>
+      </section>
+
+      <!-- 2. Sunlight zone -->
+      <section class="chapter" data-chapter="sunlight" data-d0="0" data-d1="200">
+        <div class="beat" style="top: 30%">
+          <p class="eyebrow mono">Sunlight zone · 0–200 m</p>
+          <h2>The part everyone knows.</h2>
+          <p>Almost all ocean life depends on this thin, lit layer. By its lower edge, one percent of the surface light is left.</p>
+        </div>
+        <div class="beat right" style="top: 70%">
+          <p>Every ten metres of water adds another atmosphere of pressure. Watch the gauge.</p>
+        </div>
+      </section>
+
+      <!-- 3. Twilight zone -->
+      <section class="chapter" data-chapter="twilight" data-d0="200" data-d1="1000">
+        <div class="beat" style="top: 14%">
+          <p class="eyebrow mono">Twilight zone · 200–1,000 m</p>
+          <h2>Keep your eyes on the chart.</h2>
+        </div>
+        <div class="beat right quiet" style="top: 93%">
+          <h2>Blue.</h2>
+        </div>
+      </section>
+
+      <!-- 4. Midnight zone -->
+      <section class="chapter" data-chapter="midnight" data-d0="1000" data-d1="4000">
+        <div class="beat" style="top: 12%">
+          <p class="eyebrow mono">Midnight zone · 1,000–4,000 m</p>
+          <h2>No sun from here down.</h2>
+          <p>Three quarters of the animals down here make their own light. With the floodlights on, you won't see any of them.</p>
+          <button class="chip big js-lights" type="button"><span class="dot"></span>Kill the floodlights</button>
+        </div>
+        <div class="beat right" style="top: 48%">
+          <p><span class="pointer-fine">Move your cursor through the dark.</span><span class="pointer-coarse">Drag your finger through the dark.</span></p>
+        </div>
+        <div class="beat" style="top: 78%">
+          <p>The specks in the beams are marine snow: scraps of everything that lived above, still falling.</p>
+        </div>
+      </section>
+
+      <!-- 5. The vessel -->
+      <section class="chapter vessel" data-chapter="vessel" data-d0="4000" data-d1="4000">
+        <div class="sticky">
+          <div class="specs">
+            <p class="eyebrow mono">The vessel · holding at 4,000 m</p>
+            <h2>HTI-01 <em>Tenebra</em></h2>
+            <ol class="spec-list">
+              <li data-part="sphere"><b class="mono">01</b><div><h3>Crew sphere</h3><p>Forged Ti-6Al-4V titanium, 2.1 m inside, 94 mm wall. Three people, three viewports. Tested to 13,100 m.</p></div></li>
+              <li data-part="foam"><b class="mono">02</b><div><h3>Syntactic foam</h3><p>11.4 m³ of hollow glass microspheres set in epoxy, under a lift-off fairing. Buoyancy that doesn't crush at full ocean depth.</p></div></li>
+              <li data-part="thrusters"><b class="mono">03</b><div><h3>Thrusters</h3><p>A 12 kW ducted main drive with an X-tail, plus four 5 kW manoeuvring thrusters. Cruise at 1.5 knots on the bottom.</p></div></li>
+              <li data-part="frame"><b class="mono">04</b><div><h3>Frame &amp; power</h3><p>Titanium skids, two 30 kWh battery pods in oil, 420 kg of steel drop-weight for the ride home.</p></div></li>
+              <li data-part="bow"><b class="mono">05</b><div><h3>Bow</h3><p>Two 30,000-lumen LED floods, a seven-function manipulator, a sample basket, and a colour chart for the camera.</p></div></li>
+            </ol>
+            <dl class="spec-meta mono">
+              <div><dt>Mass</dt><dd>11.8 t</dd></div>
+              <div><dt>Descent</dt><dd>0.8 m/s</dd></div>
+              <div><dt>Life support</dt><dd>96 h</dd></div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Abyssal plain -->
+      <section class="chapter" data-chapter="abyssal" data-d0="4000" data-d1="6000">
+        <div class="beat" style="top: 12%">
+          <p class="eyebrow mono">Abyssal zone · 4,000–6,000 m</p>
+          <h2>Mapped by sound.</h2>
+          <p>No light reaches the floor, so we listen for it. Each ping draws a little more.</p>
+        </div>
+        <div class="beat right" style="top: 62%">
+          <p>Abyssal plains cover about half the planet. They're among the flattest places on it, and among the least seen.</p>
+        </div>
+      </section>
+
+      <!-- 7. Hadal zone -->
+      <section class="chapter" data-chapter="hadal" data-d0="6000" data-d1="10935">
+        <div class="beat" style="top: 10%">
+          <p class="eyebrow mono">Hadal zone · 6,000–10,935 m</p>
+          <h2>Into the trench.</h2>
+          <p>Named for Hades. The walls close in, and the hull starts to talk.</p>
+        </div>
+        <div class="beat right pressure-caption" style="top: 55%">
+          <p class="big-num mono"><span data-live="atm">600</span> atm</p>
+          <p>That's about <strong><span data-live="kg">620</span>&nbsp;kg</strong> pressing on every square centimetre of the hull. <span data-live="tonne-note"></span></p>
+        </div>
+      </section>
+
+      <!-- 8. The bottom -->
+      <section class="chapter bottom" data-chapter="bottom" data-d0="10935" data-d1="10935">
+        <div class="beat center" style="top: 8%">
+          <h2 class="huge">Silence.</h2>
+        </div>
+        <div class="beat right" style="top: 34%">
+          <p>Fine sediment, and the amphipods that found the bait before we did. They've never seen light.</p>
+        </div>
+        <div class="beat manifest-wrap" style="top: 58%">
+          <article class="manifest mono" aria-label="Dive manifest">
+            <header>
+              <span>Dive manifest</span><span>HTI-0417</span>
+            </header>
+            <dl>
+              <div><dt>Vessel</dt><dd>HTI-01 Tenebra</dd></div>
+              <div><dt>Site</dt><dd>Challenger Deep, Eastern Pool</dd></div>
+              <div><dt>Position</dt><dd>11°22.4′N 142°35.5′E</dd></div>
+              <div><dt>Pilot</dt><dd>R. Okonkwo</dd></div>
+              <div><dt>Observers</dt><dd>M. Salazar-Imai, T. Varga</dd></div>
+              <div><dt>Left surface</dt><dd>06:12</dd></div>
+              <div><dt>On bottom</dt><dd>10:00 &nbsp;(3 h 48 m)</dd></div>
+              <div><dt>Max depth</dt><dd>10,935 m</dd></div>
+              <div><dt>Pressure</dt><dd>1,088 atm</dd></div>
+              <div><dt>Water temp</dt><dd>2.5 °C</dd></div>
+              <div><dt>Bottom time</dt><dd>4 h 10 m</dd></div>
+              <div><dt>Recovered</dt><dd>3 sediment cores · 1 bait trap (212 amphipods) · 6 h of footage</dd></div>
+              <div><dt>Status</dt><dd class="status">Awaiting ascent</dd></div>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <!-- 9. CTA -->
+      <section class="chapter cta" data-chapter="cta" data-d0="10935" data-d1="10935">
+        <div class="beat center" style="top: 30vh">
+          <p class="eyebrow mono">Drop weights armed</p>
+          <button id="btn-surface" class="surface-btn" type="button">Surface.</button>
+          <p class="lede">Observer seats for the 2027 season are open.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Lands here after the ascent -->
+    <div id="signup" hidden>
+      <div class="signup-card" role="dialog" aria-modal="true" aria-labelledby="signup-title">
+        <p class="eyebrow mono">Surfaced · 0 m · 1.0 atm</p>
+        <h2 id="signup-title">Take the next seat down.</h2>
+        <p>Three observer seats per dive, twelve dives in the 2027 season. Tell us who you are and we'll be in touch before the window opens.</p>
+        <form id="signup-form" novalidate>
+          <label>Name<input name="name" autocomplete="name" required /></label>
+          <label>Email<input name="email" type="email" autocomplete="email" required /></label>
+          <label>Why do you want to go down? <span class="opt">optional</span><textarea name="why" rows="3"></textarea></label>
+          <p class="form-error" role="alert" hidden></p>
+          <div class="form-actions">
+            <button type="submit" class="surface-btn small">Request a seat</button>
+            <button type="button" class="link-btn" id="btn-close-signup">Stay on deck</button>
+          </div>
+        </form>
+        <div class="signup-done" hidden>
+          <h3>Logged.</h3>
+          <p>You're on the manifest for the 2027 selection round. Watch your inbox.</p>
+          <button type="button" class="link-btn" id="btn-dive-again">Dive again ↓</button>
+        </div>
+      </div>
+    </div>
+
+    <noscript><p class="noscript">This descent needs JavaScript. The Hadal Trench Institute runs crewed dives to 10,935 m.</p></noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
